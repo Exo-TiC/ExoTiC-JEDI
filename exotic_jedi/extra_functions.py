@@ -9,6 +9,7 @@
 
 # Authors: Lili Alderson lili.alderson@bristol.ac.uk
 #          David Grant david.grant@bristol.ac.uk
+#          Hannah R Wakeford hannah.wakeford@bristol.ac.uk
 
 
 # File Created : 18 July 2022
@@ -122,3 +123,82 @@ def dq_flag_metrics(data_cube, dq_cube, plot_bit=None):
         plt.show()
 
 
+def noise_calculator(data, maxnbins=None, binstep=1):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    """
+    Author: Hannah R. Wakeford, University of Bristol
+    Email: hannah.wakeford@bristol.ac.uk
+    Citation: Laginja & Wakeford, 2020, JOSS, 5, 51 (https://joss.theoj.org/papers/10.21105/joss.02281)
+    
+    Calculate the noise parameters of the data by using the residuals of the fit
+    :param data: array, residuals of (2nd) fit
+    :param maxnbins: int, maximum number of bins (default is len(data)/10)
+    :param binstep: bin step size
+    :return:
+        red_noise: float, correlated noise in the data
+        white_noise: float, statistical noise in the data
+        beta: float, scaling factor to account for correlated noise
+    """
+
+    # bin data into multiple bin sizes
+    npts = len(data)
+    if maxnbins is None:
+        maxnbins = npts/10.
+
+    # create an array of the bin steps to use
+    binz = np.arange(1, maxnbins+binstep, step=binstep, dtype=int)
+
+    # Find the bin 2/3rd of the way down the bin steps
+    midbin = int((binz[-1]*2)/3)
+
+    nbins = np.zeros(len(binz), dtype=int)
+    standard_dev = np.zeros(len(binz))
+    root_mean_square = np.zeros(len(binz))
+    root_mean_square_err = np.zeros(len(binz))
+    
+    for i in range(len(binz)):
+        nbins[i] = int(np.floor(data.size/binz[i]))
+        bindata = np.zeros(nbins[i], dtype=float)
+        
+        # bin data - contains the different arrays of the residuals binned down by binz
+        for j in range(nbins[i]):
+            bindata[j] = np.mean(data[j*binz[i] : (j+1)*binz[i]])
+
+        # get root_mean_square statistic
+        root_mean_square[i] = np.sqrt(np.mean(bindata**2))
+        root_mean_square_err[i] = root_mean_square[i] / np.sqrt(2.*nbins[i])
+      
+    expected_noise = (np.std(data)/np.sqrt(binz)) * np.sqrt(nbins/(nbins - 1.))
+ 
+    final_noise = np.mean(root_mean_square[midbin:])
+    base_noise = np.sqrt(final_noise**2 - root_mean_square[0]**2 / nbins[midbin])
+
+    # Calculate the random noise level of the data
+    white_noise = np.sqrt(root_mean_square[0]**2 - base_noise**2)
+    # Determine if there is correlated noise in the data
+    red_noise = np.sqrt(final_noise**2 - white_noise**2 / nbins[midbin])
+    # Calculate the beta scaling factor
+    beta = np.sqrt(root_mean_square[0]**2 + nbins[midbin] * red_noise**2) / root_mean_square[0]
+
+    # If White, Red, or Beta return NaN's replace with 0, 0, 1
+    white_noise = np.nan_to_num(white_noise, copy=True)
+    red_noise = np.nan_to_num(red_noise, copy=True)
+    beta = 1 if np.isnan(beta) else beta
+    
+    # Plot up the bin statistic against the expected statistic
+    # This can be used later when we are setting up unit testing.
+    plt.figure()
+    plt.errorbar(binz, root_mean_square, yerr=root_mean_square_err, color='k', lw=1.5, label='RMS')
+    plt.plot(binz, expected_noise, color='r', ls='-', lw=2, label='expected noise')
+    
+    plt.title('Expected vs. measured noise binning statistic')
+    plt.xlabel('Number of points per bin')
+    plt.ylabel('RMS')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('noise_calculator.pdf')
+
+    return white_noise, red_noise, beta
