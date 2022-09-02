@@ -123,7 +123,7 @@ def dq_flag_metrics(data_cube, dq_cube, plot_bit=None):
         plt.show()
 
 
-def noise_calculator(data, maxnbins=None, binstep=1):
+def noise_calculator(data, maxnbins=None, binstep=1, plot_bit=None):
     import numpy as np
     import matplotlib.pyplot as plt
     """
@@ -188,17 +188,18 @@ def noise_calculator(data, maxnbins=None, binstep=1):
     
     # Plot up the bin statistic against the expected statistic
     # This can be used later when we are setting up unit testing.
-    plt.figure()
-    plt.errorbar(binz, root_mean_square, yerr=root_mean_square_err, color='k', lw=1.5, label='RMS')
-    plt.plot(binz, expected_noise, color='r', ls='-', lw=2, label='expected noise')
-    
-    plt.title('Expected vs. measured noise binning statistic')
-    plt.xlabel('Number of points per bin')
-    plt.ylabel('RMS')
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig('noise_calculator.pdf')
+    if plot_bit is not None:
+        plt.figure()
+        plt.errorbar(binz, root_mean_square, yerr=root_mean_square_err, color='k', lw=1.5, label='RMS')
+        plt.plot(binz, expected_noise, color='r', ls='-', lw=2, label='expected noise')
+        
+        plt.title('Expected vs. measured noise binning statistic')
+        plt.xlabel('Number of bins')
+        plt.ylabel('RMS')
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
 
     return white_noise, red_noise, beta
