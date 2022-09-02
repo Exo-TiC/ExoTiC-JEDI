@@ -172,12 +172,14 @@ def noise_calculator(data, maxnbins=None, binstep=1, plot_bit=None):
     expected_noise = (np.std(data)/np.sqrt(binz)) * np.sqrt(nbins/(nbins - 1.))
  
     final_noise = np.mean(root_mean_square[midbin:])
-    base_noise = np.sqrt(final_noise**2 - root_mean_square[0]**2 / nbins[midbin])
+    bnoise = abs(final_noise**2 - root_mean_square[0]**2)
+    base_noise = np.sqrt(bnoise / nbins[midbin])
 
     # Calculate the random noise level of the data
     white_noise = np.sqrt(root_mean_square[0]**2 - base_noise**2)
     # Determine if there is correlated noise in the data
-    red_noise = np.sqrt(final_noise**2 - white_noise**2 / nbins[midbin])
+    cnoise = abs(final_noise**2 - white_noise**2)
+    red_noise = np.sqrt(cnoise / nbins[midbin])
     # Calculate the beta scaling factor
     beta = np.sqrt(root_mean_square[0]**2 + nbins[midbin] * red_noise**2) / root_mean_square[0]
 
