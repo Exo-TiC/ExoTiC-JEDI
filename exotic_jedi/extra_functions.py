@@ -139,6 +139,9 @@ def noise_calculator(data, maxnbins=None, binstep=1, plot_bit=None):
         red_noise: float, correlated noise in the data
         white_noise: float, statistical noise in the data
         beta: float, scaling factor to account for correlated noise
+        
+    History: 
+        6 Sep 2022: change mean and std functions to nanmean and nanstd
     """
 
     # bin data into multiple bin sizes
@@ -163,15 +166,15 @@ def noise_calculator(data, maxnbins=None, binstep=1, plot_bit=None):
         
         # bin data - contains the different arrays of the residuals binned down by binz
         for j in range(nbins[i]):
-            bindata[j] = np.mean(data[j*binz[i] : (j+1)*binz[i]])
+            bindata[j] = np.nanmean(data[j*binz[i] : (j+1)*binz[i]])
 
         # get root_mean_square statistic
-        root_mean_square[i] = np.sqrt(np.mean(bindata**2))
+        root_mean_square[i] = np.sqrt(np.nanmean(bindata**2))
         root_mean_square_err[i] = root_mean_square[i] / np.sqrt(2.*nbins[i])
       
-    expected_noise = (np.std(data)/np.sqrt(binz)) * np.sqrt(nbins/(nbins - 1.))
+    expected_noise = (np.nanstd(data)/np.sqrt(binz)) * np.sqrt(nbins/(nbins - 1.))
  
-    final_noise = np.mean(root_mean_square[midbin:])
+    final_noise = np.nanmean(root_mean_square[midbin:])
     bnoise = abs(final_noise**2 - root_mean_square[0]**2)
     base_noise = np.sqrt(bnoise / nbins[midbin])
 
