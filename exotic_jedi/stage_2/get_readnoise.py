@@ -73,7 +73,7 @@ class ReadNoiseStep(Step):
                     :, self.trim_col_start:self.trim_col_end].copy()
 
                 # Convert from DN to electrons.
-                readnoise_model.data += self.gain_value
+                readnoise_model.data *= self.gain_value
 
                 # Save.
                 readnoise_model.save(path=os.path.join(

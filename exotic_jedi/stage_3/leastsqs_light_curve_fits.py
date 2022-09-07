@@ -19,7 +19,7 @@ def fit_white_light_curve(times, flux, flux_err, pre_tilt_x, pre_tilt_y,
     params.limb_dark = "nonlinear"  # fixed.
     m = batman.TransitModel(params, times)
 
-    def model(_, t0, rp, a, inc, s1, s2, s5, l1, l2, l5, a1, b1):
+    def model(_, t0, rp, a, inc, s1, s2, l1, l2, a1, b1):
 
         # Free physical params.
         params.t0 = t0
@@ -29,10 +29,8 @@ def fit_white_light_curve(times, flux, flux_err, pre_tilt_x, pre_tilt_y,
         light_curve = m.light_curve(params)
 
         # Systematics
-        pre_tilt_sys = s1 * pre_tilt_x + s2 * pre_tilt_y \
-                       + s5 * pre_tilt_x * pre_tilt_y
-        pst_tilt_sys = l1 * pst_tilt_x + l2 * pst_tilt_y \
-                       + l5 * pst_tilt_x * pst_tilt_y
+        pre_tilt_sys = s1 * pre_tilt_x + s2 * pre_tilt_y
+        pst_tilt_sys = l1 * pst_tilt_x + l2 * pst_tilt_y
         light_curve[:tilt_idx] += pre_tilt_sys
         light_curve[tilt_idx:] += pst_tilt_sys
 
@@ -45,7 +43,7 @@ def fit_white_light_curve(times, flux, flux_err, pre_tilt_x, pre_tilt_y,
     popt, pcov = curve_fit(
         model, times, flux, sigma=flux_err,
         p0=[59791.113, 0.146178, 11.55, 87.93,
-            0., 0., 0., 0., 0., 0., 0., 0.],
+            0., 0., 0., 0., 0., 0.],
         method='lm')
 
     perr = np.sqrt(np.diag(pcov))
@@ -110,17 +108,15 @@ def fit_spec_light_curve(times, flux, flux_err, pre_tilt_x, pre_tilt_y,
     mask = np.ones(times.shape).astype(bool)
     while True:
 
-        def model(_, rp, s1, s2, s5, l1, l2, l5, a1, b1, use_mask=True):
+        def model(_, rp, s1, s2, l1, l2, a1, b1, use_mask=True):
 
             # Free physical params.
             params.rp = rp
             light_curve = m.light_curve(params)
 
             # Systematics
-            pre_tilt_sys = s1 * pre_tilt_x + s2 * pre_tilt_y \
-                           + s5 * pre_tilt_x * pre_tilt_y
-            pst_tilt_sys = l1 * pst_tilt_x + l2 * pst_tilt_y \
-                           + l5 * pst_tilt_x * pst_tilt_y
+            pre_tilt_sys = s1 * pre_tilt_x + s2 * pre_tilt_y
+            pst_tilt_sys = l1 * pst_tilt_x + l2 * pst_tilt_y
             light_curve[:tilt_idx] += pre_tilt_sys
             light_curve[tilt_idx:] += pst_tilt_sys
 
@@ -136,7 +132,7 @@ def fit_spec_light_curve(times, flux, flux_err, pre_tilt_x, pre_tilt_y,
         _iter += 1
         popt, pcov = curve_fit(
             model, times[mask], flux[mask], sigma=flux_err[mask],
-            p0=[0.146178, 0., 0., 0., 0., 0., 0., 0., 0.],
+            p0=[0.146178, 0., 0., 0., 0., 0., 0.],
             method='lm')
 
         perr = np.sqrt(np.diag(pcov))
