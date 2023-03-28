@@ -55,6 +55,7 @@ import pickle
 
 
 def dq_flat_replace(sci_cube, dq_cube, bits_to_mask=[0, 2, 10, 11], window_size=4):
+    '''
     # Load in fits file and find locations of pixels with data quality flags that match those in inputed list
     # Any flagged pixels will be replaced with the median value of pixels in a window along that row
     
@@ -63,8 +64,11 @@ def dq_flat_replace(sci_cube, dq_cube, bits_to_mask=[0, 2, 10, 11], window_size=
     # dq_cube : 3D array of data quality flags, as in extension [3] of jwst _rateints.fits file
     # bits_to_mask=[0,2,10,11] : data quality flags that require replacement see Table 3, https://jwst-pipeline.readthedocs.io/_/downloads/en/latest/pdf/
     # window_size=4 : how many pixels either side of the flagged pixel to take the median from
-    
-        
+
+    # Outputs
+    # sci_cub : cleaned 3D data cube thingy
+    '''
+
     #dq_cube = data_cube[3].data
     
     #sci_cube = data_cube[1].data.copy()
@@ -186,6 +190,7 @@ def construct_spatial_profile(D_S, poly_order=9, outlier_sigma=20, window_size=1
 
 
 def outliers_through_space(input_data, replace_window=4, search_window=10, poly_order=9, n_sig=20, plot=False):
+    '''
     # scans through each row in each image to search for hot and dead pixels
     # uses a window as it scans to get roughly similiar region of detector (i.e., bc of trace) 
     # fits polynomial to that region, and flags outliers to the fit of the poly
@@ -201,7 +206,7 @@ def outliers_through_space(input_data, replace_window=4, search_window=10, poly_
     # Outputs
     # data_to_window : cleaned 3d data cube thingy
     # counts_per_image : list of total number replaced pixels per image
-    
+    '''
 
     data_to_window=input_data.copy()
     
@@ -248,6 +253,7 @@ def outliers_through_space(input_data, replace_window=4, search_window=10, poly_
 
 
 def outliers_through_time(input_data, window_size=30, n_sig=6, plot=False):
+    '''
     # quickly scans for cosmic rays / telegraph pixels in 3D [integrations x time] data by hunting for sigma outliers
     
     # Inputs
@@ -257,14 +263,14 @@ def outliers_through_time(input_data, window_size=30, n_sig=6, plot=False):
     
     # Outputs
     # new_data : cleaned 3D data cube thingy
-    
+    '''
+
     new_data=input_data.copy()
     list_rays=[]
     total_hits=[]
     hitsi=[]
     hitsx=[]
     hitsy=[]
-    
     
     
     #for window_start in range(input_data.shape[0]-window_size):
@@ -341,6 +347,7 @@ def gauss(x, x0, sig, k):
 
 
 def identify_trace(im, width_guess, start, end):
+    '''
     # fits a gaussian to each column of the image to find the position and width of trace
     # returns array of trace information and an array of the cropped x pixel values
     
@@ -353,7 +360,8 @@ def identify_trace(im, width_guess, start, end):
     # Outputs
     # fitted_gaussians : array of the curve_fit gaussian output for each column of the image
     # cropped_length : array of the x pixel values used, so we can match up the gaussians to their columns later on
-    
+    '''
+
     fitted_gaussians = []
     
     im_shape = np.shape(im)
@@ -389,6 +397,7 @@ def identify_trace(im, width_guess, start, end):
 
 
 def make_poly(params, xvalues):
+    '''
     # generates y values based on the output of polyfit for any order polynomial
     
     # Inputs
@@ -397,7 +406,8 @@ def make_poly(params, xvalues):
     
     # Outputs
     # poly : y values of the polynomial, to be plotted against xvalues input
-    
+    '''
+
     poly = np.zeros(len(xvalues)) + params[-1] # create array of zeros and then add the constant term to them
     for i in range(len(params)-1): # loop over the params, but not the last one! we did that already
         poly += params[i] * xvalues ** float(len(params)-i-1) # add each term to the poly value so it'll be say the 2nd order term * x**2, but complicated bc counting is hard
@@ -406,6 +416,7 @@ def make_poly(params, xvalues):
 
 
 def get_aperture(im, trace_width_guess, start, end, poly_orders=[2,6], width=3, medflt=11, extrapolate_method=None, continue_value=[20,0], set_to_edge=False):
+    '''
     # Takes image and finds trace position and width by fitting gaussians
     # Gives aperture limits by fitting polynomial to width of the gaussians
     
@@ -428,7 +439,8 @@ def get_aperture(im, trace_width_guess, start, end, poly_orders=[2,6], width=3, 
     # lower_aperture : lower edge of the aperture, full length of image
     # upper_ap : upper edge of the aperture, same length as xarray
     # lower_ap : lower edge of the aperture, same length as xarray
-    
+    '''
+
     trace_info, xarray = identify_trace(im, trace_width_guess, start, end) # fit the gaussians to find where the trace is
 
 
@@ -507,6 +519,7 @@ def get_aperture(im, trace_width_guess, start, end, poly_orders=[2,6], width=3, 
 
 
 def f_noise_zone(im, upper_ap, lower_ap, ap_buffers=[0,0], plot=False, vmin=0, vmax=4.5, set_to_edge=False):
+    '''
     # Creates a mask to use for calculating the 1/f noise
     # Uses the aperture region (+/- a buffer) to define the unilluminated region
     
@@ -524,7 +537,9 @@ def f_noise_zone(im, upper_ap, lower_ap, ap_buffers=[0,0], plot=False, vmin=0, v
     # mask : a 2D array same shape as the image in which 0s are the pixels to be used for 1/f noise
     # upper_buffer_region : array same length as image incase region needs to be plotted in the future
     # lower_buffer_region : array same length as image incase region needs to be plotted in the future
-    
+    '''
+
+
     upper_ap_buffer = ap_buffers[0] # defining some key values here to make everything slightly more legible
     lower_ap_buffer = ap_buffers[1]
     #ap_start = xarray[0]
@@ -591,6 +606,7 @@ def f_noise_zone(im, upper_ap, lower_ap, ap_buffers=[0,0], plot=False, vmin=0, v
 
 
 def remove_fnoise(im, mask, plot=False, vmin=0, vmax=4.5):
+    '''
     # Removes 1/f from images by "destripping" - subtracting the median of the unilluminated pixels in each column
     
     # Inputs
@@ -602,7 +618,8 @@ def remove_fnoise(im, mask, plot=False, vmin=0, vmax=4.5):
     
     # Outputs
     # clean_im : the destripped 2D integration image
-    
+    '''
+
     masked_im = np.ma.masked_array(im, mask=mask)
 
     fnoise = np.ones(np.shape(im)) * np.ma.median(masked_im, axis=0)
@@ -640,7 +657,8 @@ def remove_fnoise(im, mask, plot=False, vmin=0, vmax=4.5):
 
 
 def make_1f_stack(im_stack, mask):
-	# Returns a stack of 1/f noise cleaned 2D integration images
+	'''
+    # Returns a stack of 1/f noise cleaned 2D integration images
     
     # Inputs
     # im_stack : a stack of 2D integration images
@@ -654,12 +672,13 @@ def make_1f_stack(im_stack, mask):
         im_stack[i] = remove_fnoise(im_stack[i], mask) # make a cleaned version of the image
         
     return(im_stack)
-
+    '''
 
 
 
 
 def ints_to_timeseries(im, mask=None):
+    '''
     # Stack all the pixels up in a timeseries, taking into account the read time difference between them
     # Can use a mask if you want to hide a certain part of the image (e.g., illuminated, to check 1/f dominance)
     
@@ -670,7 +689,8 @@ def ints_to_timeseries(im, mask=None):
     # Outputs
     # read_times : the times each unmasked pixel was read, 10us gaps in columns and a 120us to jump to a new row
     # pixel_counts : the count value of each unmasked pixel
-    
+    '''
+
     time_jump = 10 * 1e-6 # 10 micro second gap between pixels in a column
     
     read_times = []
@@ -698,6 +718,7 @@ def ints_to_timeseries(im, mask=None):
 
 
 def check_1f(im_stack, fnoise_mask, stack=True):
+    '''
     # Makes a plot comparing the power spectra of a 2D integration before and after 1/f noise cleaning
     # Uses ints_to_timeseries to untangle the images, then a Lomb Scargle periodogram to make plot
     # Can feed a single image, or a complete stack. Stacks will plot the median power spectrum
@@ -706,7 +727,8 @@ def check_1f(im_stack, fnoise_mask, stack=True):
     # im_stack : either a stack of 2D integration images, or a single 2D integration image
     # mask : 2D array equal size to the integration, used to hide illuminated area in 1/f cleaning
     # stack=True : whether or not im_stack is actually a stack, or a single image
-    
+    '''
+
     frequencies = np.logspace(np.log10(1/(0.22515000000006288*4)),np.log10(1/(10e-6)),100)
 
     powers = []
@@ -757,6 +779,7 @@ def check_1f(im_stack, fnoise_mask, stack=True):
 
 
 def basic_extraction(im, upper_ap, lower_ap, xarray=None, set_to_edge=False):
+    '''
     # extracts the spectra from the aperture region, using intrapixel methods to handle the polynomial non integer-ness
     
     # Inputs 
@@ -768,7 +791,8 @@ def basic_extraction(im, upper_ap, lower_ap, xarray=None, set_to_edge=False):
     
     # Outputs
     # spectrum : 1D stellar spectrum from the image
-    
+    '''
+
     if xarray is not None:
         im = im[:,xarray[0]:xarray[-1]]
         upper_ap = upper_ap[xarray[0]:xarray[-1]]
@@ -810,6 +834,7 @@ def basic_extraction(im, upper_ap, lower_ap, xarray=None, set_to_edge=False):
 
 
 def intrapixel_extraction(im, upper_ap, lower_ap, xarray=None, set_to_edge=False):
+    '''
     # extracts the spectra from the aperture region, using intrapixel methods to handle the polynomial non integer-ness
     
     # Inputs 
@@ -822,7 +847,8 @@ def intrapixel_extraction(im, upper_ap, lower_ap, xarray=None, set_to_edge=False
     
     # Outputs
     # spectrum : 1D stellar spectrum from the image
-    
+    '''
+
     if xarray is not None:
         im = im[:,xarray[0]:xarray[-1]]
         upper_ap = upper_ap[xarray[0]:xarray[-1]]
@@ -887,6 +913,7 @@ def intrapixel_extraction(im, upper_ap, lower_ap, xarray=None, set_to_edge=False
 
 
 def correlator(spec, template, trim_spec=3, high_res_factor=0.01, trim_fit=10, plot=False):
+    '''
     # Cross-correlate a spectrum with a template using scipy.signal.correlate() and .correlation_lags()
     # Provides the shift needed in the x direction
 
@@ -899,6 +926,7 @@ def correlator(spec, template, trim_spec=3, high_res_factor=0.01, trim_fit=10, p
 
     # Outputs
     # better_lag : the shift needed to align the spectra
+    '''
 
     # Trim x function, otherwise overlap always greatest at zero shift.
     x = np.copy(spec[trim_spec:-trim_spec])
@@ -939,6 +967,7 @@ def correlator(spec, template, trim_spec=3, high_res_factor=0.01, trim_fit=10, p
 
 
 def shift_shift(spectrum, shift, method = 'cubic'):
+    '''
     # Use cross correlated spectral shifts to regrid the spectra and align them
     
     # Inputs
@@ -948,7 +977,8 @@ def shift_shift(spectrum, shift, method = 'cubic'):
     
     # Outputs
     # new_spec : shifted 1D stellar spectrum
-    
+    '''
+
     x = np.arange(len(spectrum))
     
     shifted_x = x - shift
@@ -968,6 +998,7 @@ def shift_shift(spectrum, shift, method = 'cubic'):
 
 
 def get_stellar_spectra(data_cube, upper_ap, lower_ap, set_to_edge = True, xarray=None, flat=None, f_mask=None, extract_method="intrapixel", shift=True, interpolate_mode="cubic", trim_spec=[3,1], high_res_factor=[0.01,0.01], trim_fit=[10,10], plot=False):
+    '''
     # Gets those spectra! 
     # loops over all the 2D integration images to remove 1/f noise and perform the extraction, 
     # correlates the spectra to the template then deshifts them by interpolating to new grid
@@ -994,7 +1025,8 @@ def get_stellar_spectra(data_cube, upper_ap, lower_ap, set_to_edge = True, xarra
     # all_y_collapse : array of aligned 1D collapses in y direction
     # x_shifts : x shift values for detrending
     # y_shifts : y shift values for detrending
-    
+    '''
+
     x_shifts = []
     y_shifts = []
     
@@ -1098,7 +1130,7 @@ def get_stellar_spectra(data_cube, upper_ap, lower_ap, set_to_edge = True, xarra
 
 
 def compare_2d_spectra(clean_spectra, unclean_spectra, wvl, time, time_units="BJD", spectra_limits=[0.8,1], residual_limits=None, figsize=(14,10)):
-
+    '''
     # Make pretty plots comparing 2D spectra at different stages of the extraction process
     # Useful for checking e.g., how much of an effect 1/f noise correction has had
     # Plots standard and normalised 2D spectra for the two inputs, along with a residual plot to highlight any differences
@@ -1112,7 +1144,7 @@ def compare_2d_spectra(clean_spectra, unclean_spectra, wvl, time, time_units="BJ
     # spectra_limits=[0.8,1] : tuple of [vmin, vmax] for normalised spectra plot
     # residual_limits=None : tuple of [vmin, vmax] for the residual plot, if none selected, plot defaults to min and max value of the residuals
     # figsize=(14,10) : size of figure
-
+    '''
 
 
     X, Y = np.meshgrid(wvl, time)
