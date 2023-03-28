@@ -123,88 +123,127 @@ def dq_flag_metrics(data_cube, dq_cube, plot_bit=None):
         plt.show()
 
 
-def noise_calculator(data, maxnbins=None, binstep=1, plot_bit=None):
-    import numpy as np
-    import matplotlib.pyplot as plt
-    """
-    Author: Hannah R. Wakeford, University of Bristol
+def noise_calculator(residuals, maxnbins=None, binstep=1, rndm_rlz=10,
+                     plot_bit=True, beta_nbin_range=None):
+    """Calculate the noise properties and Allan Variance plot for a given set
+    of fit residuals.
+    Author: Hannah R. Wakeford, University of Bristol, edited by MCR
     Email: hannah.wakeford@bristol.ac.uk
     Citation: Laginja & Wakeford, 2020, JOSS, 5, 51 (https://joss.theoj.org/papers/10.21105/joss.02281)
-    
-    Calculate the noise parameters of the data by using the residuals of the fit
-    :param data: array, residuals of (2nd) fit
-    :param maxnbins: int, maximum number of bins (default is len(data)/10)
-    :param binstep: bin step size
-    :return:
-        red_noise: float, correlated noise in the data
-        white_noise: float, statistical noise in the data
-        beta: float, scaling factor to account for correlated noise
-        
-    History: 
-        6 Sep 2022: change mean and std functions to nanmean and nanstd
+
+    Parameters
+    ----------
+    residuals : array-like
+        Fit residuals in ppm.
+    maxnbins : int, None
+        Maxmimum number of integrations to put in a single bin.
+    binstep : int
+        Bin step size.
+    rndm_rlz : int
+        Number of random noise realizations to generate (only relevant for
+        plotting).
+    plot_bit : bool
+        If True, show Allan Variance Plot.
+    beta_nbin_range : tuple, None
+        Range of binned integrations over which to calculate beta factor.
+
+    Returns
+    -------
+    white_noise : float
+        Estimate of white noise in ppm.
+    red_noise : float
+        Estimate of red noise in ppm.
+    beta : float
+        Beta scaling factor to account for correlated noise.
     """
 
-    # bin data into multiple bin sizes
-    npts = len(data)
+    # Bin data into multiple bin sizes
     if maxnbins is None:
-        maxnbins = npts/10.
+        maxnbins = len(residuals) / 10.
 
-    # create an array of the bin steps to use
-    binz = np.arange(1, maxnbins+binstep, step=binstep, dtype=int)
+    # Create an array of the bin sizes in integrations.
+    binz = np.arange(1, maxnbins + binstep, step=binstep, dtype=int)
 
-    # Find the bin 2/3rd of the way down the bin steps
-    midbin = int((binz[-1]*2)/3)
-
+    # Initialize some storage arrays.
     nbins = np.zeros(len(binz), dtype=int)
-    standard_dev = np.zeros(len(binz))
     root_mean_square = np.zeros(len(binz))
     root_mean_square_err = np.zeros(len(binz))
-    
+
+    # Loop over each bin size and bin the requisite number of integrations.
     for i in range(len(binz)):
-        nbins[i] = int(np.floor(data.size/binz[i]))
+        # Total number of bins binning binz[i] integrations per bin
+        nbins[i] = int(np.floor(residuals.size / binz[i]))
         bindata = np.zeros(nbins[i], dtype=float)
-        
-        # bin data - contains the different arrays of the residuals binned down by binz
+
+        # Do the binning
         for j in range(nbins[i]):
-            bindata[j] = np.nanmean(data[j*binz[i] : (j+1)*binz[i]])
+            bindata[j] = np.nanmean(residuals[j * binz[i]: (j + 1) * binz[i]])
 
-        # get root_mean_square statistic
-        root_mean_square[i] = np.sqrt(np.nanmean(bindata**2))
-        root_mean_square_err[i] = root_mean_square[i] / np.sqrt(2.*nbins[i])
-      
-    expected_noise = (np.nanstd(data)/np.sqrt(binz)) * np.sqrt(nbins/(nbins - 1.))
- 
-    final_noise = np.nanmean(root_mean_square[midbin:])
-    bnoise = abs(final_noise**2 - root_mean_square[0]**2)
-    base_noise = np.sqrt(bnoise / nbins[midbin])
+        # Get RMS statistic and associated error
+        root_mean_square[i] = np.sqrt(np.nanmean(bindata ** 2))
+        root_mean_square_err[i] = root_mean_square[i] / np.sqrt(nbins[i])
 
-    # Calculate the random noise level of the data
-    white_noise = np.sqrt(root_mean_square[0]**2 - base_noise**2)
-    # Determine if there is correlated noise in the data
-    cnoise = abs(final_noise**2 - white_noise**2)
-    red_noise = np.sqrt(cnoise / nbins[midbin])
-    # Calculate the beta scaling factor
-    beta = np.sqrt(root_mean_square[0]**2 + nbins[midbin] * red_noise**2) / root_mean_square[0]
+    # Get expected white noise trend
+    expected_noise = (np.nanstd(residuals) / np.sqrt(binz)) * np.sqrt(
+        nbins / (nbins - 1.))
 
-    # If White, Red, or Beta return NaN's replace with 0, 0, 1
-    white_noise = np.nan_to_num(white_noise, copy=True)
-    red_noise = np.nan_to_num(red_noise, copy=True)
-    beta = 1 if np.isnan(beta) else beta
-    
-    # Plot up the bin statistic against the expected statistic
-    # This can be used later when we are setting up unit testing.
-    if plot_bit is not None:
-        plt.figure()
-        plt.errorbar(binz, root_mean_square, yerr=root_mean_square_err, color='k', lw=1.5, label='RMS')
-        plt.plot(binz, expected_noise, color='r', ls='-', lw=2, label='expected noise')
-        
-        plt.title('Expected vs. measured noise binning statistic')
-        plt.xlabel('Number of bins')
-        plt.ylabel('RMS')
+    # If generating a plot, it can be useful to show multiple random
+    # generations of white noise instead of just the "expected photon noise"
+    # trend. Repeat the above for random white noise realizations.
+    if plot_bit is True and rndm_rlz != 0:
+        random_samples = np.zeros((rndm_rlz, len(binz)))
+        # Loop over each realization
+        for g in range(rndm_rlz):
+            this_sample = []
+            # Generate white noise with same std dev as the residuals.
+            wht_residuals = np.random.normal(loc=0.,
+                                             scale=np.nanstd(residuals),
+                                             size=residuals.size)
+            # Repeat the above binning process.
+            for i in range(len(binz)):
+                bindata = np.zeros(nbins[i], dtype=float)
+                for j in range(nbins[i]):
+                    bindata[j] = np.nanmean(
+                        wht_residuals[j * binz[i]: (j + 1) * binz[i]])
+                this_sample.append(np.sqrt(np.nanmean(bindata ** 2)))
+            random_samples[g] = this_sample
+        # Calculate 1 and 2 sigma envelopes of the white noise trends.
+        pctl = np.percentile(random_samples, [2.3, 15.9, 84.1, 97.7], axis=0)
+        low2, low1, up1, up2 = pctl
+
+    # Calculate beta factor.
+    if beta_nbin_range is None:
+        beta_nbin_range = (10, int(maxnbins))
+    bin_low = np.argmin(abs(binz - beta_nbin_range[0]))
+    bin_up = np.argmin(abs(binz - beta_nbin_range[1]))
+    # Estimate the white and red noise variance over the desired range.
+    white = expected_noise[bin_low:bin_up] ** 2
+    red = root_mean_square[bin_low:bin_up] ** 2
+    white_noise = np.sqrt(np.mean(white))
+    red_noise = np.sqrt(np.abs(np.mean(red - white)))
+    # Calculate the beta scaling factor.
+    beta = np.sqrt(np.mean(red / white))
+
+    # Plot up the binned statistic against the expected statistic.
+    if plot_bit is True:
+        plt.figure(facecolor='white', figsize=(7, 5))
+        plt.errorbar(binz, root_mean_square, yerr=root_mean_square_err,
+                     fmt='-o', ms=2,
+                     color='black', label=' Residual RMS')
+        plt.plot(binz, expected_noise, color='red', ls='-', lw=2,
+                 label='White Noise')
+        if rndm_rlz != 0:
+            plt.fill_between(binz, low2, up2, facecolor='black',
+                             edgecolor='None', alpha=0.2)
+            plt.fill_between(binz, low1, up1, facecolor='black',
+                             edgecolor='None', alpha=0.2)
+        plt.xlabel('Bin Size [integrations]', fontsize=16)
+        plt.ylabel('RMS [ppm]', fontsize=16)
         plt.xscale('log')
+        plt.xticks(fontsize=12)
         plt.yscale('log')
-        plt.legend()
-        plt.tight_layout()
+        plt.yticks(fontsize=12)
+        plt.legend(fontsize=14)
         plt.show()
 
     return white_noise, red_noise, beta
