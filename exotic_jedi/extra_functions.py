@@ -13,7 +13,7 @@
 
 
 # File Created : 18 July 2022
-#				 Lili Alderson lili.alderson@bristol.ac.uk
+#                Lili Alderson lili.alderson@bristol.ac.uk
 
 
 
@@ -43,10 +43,19 @@ import pickle
 
 def unsegment(pathlist, exten):
     '''
-    From Jeff Valenti:
-    Read data from segmented files into a single stack.
-    Updated by H.Wakeford
+    # From Jeff Valenti:
+    # Read data from segmented files into a single stack.
+    # Updated by H.Wakeford
+    
+    # Inputs
+    # pathlist : list of filepaths for the segments in the observation
+    # exten : which fits file extension to unsegment (e.g., 1=data, 3=dq_flags)
+
+    # Outputs
+    # stack : 3D array of the unsegmented fits extention
+    # [x0, y0] : tuple of x0 and y0
     '''
+
     for path in pathlist:
         with fits.open(path) as hdu:
             data = hdu[exten].data
@@ -75,6 +84,16 @@ def unsegment(pathlist, exten):
 
 
 def dq_flag_metrics(data_cube, dq_cube, plot_bit=None):
+    '''
+    # Provides a list of the number of pixels flagged with each data quality flag, 
+    # both the DQ bit and the readable name of the flag are given
+    
+    # Inputs
+    # data_cube : 3D array of the science extention from the fits file
+    # dq_cube : 3D array of the data quality extention from the fits files
+    # plot_bit=None : whether to plot the flagged pixels in an imshow
+    '''
+    
     flags_dict = {0: "DO_NOT_USE", 1: "SATURATED", 2: "JUMP_DET",
                   3: "DROPOUT", 4: "OUTLIER", 5: "PERSISTENCE",
                   6: "AD_FLOOR", 7: "RESERVED", 8: "UNRELIABLE_ERROR",
@@ -125,7 +144,8 @@ def dq_flag_metrics(data_cube, dq_cube, plot_bit=None):
 
 def noise_calculator(residuals, maxnbins=None, binstep=1, rndm_rlz=10,
                      plot_bit=True, beta_nbin_range=None):
-    """Calculate the noise properties and Allan Variance plot for a given set
+    """
+    Calculate the noise properties and Allan Variance plot for a given set
     of fit residuals.
     Author: Hannah R. Wakeford, University of Bristol, edited by MCR
     Email: hannah.wakeford@bristol.ac.uk
@@ -246,4 +266,4 @@ def noise_calculator(residuals, maxnbins=None, binstep=1, rndm_rlz=10,
         plt.legend(fontsize=14)
         plt.show()
 
-    return white_noise, red_noise, beta
+    return white_noise, red_noise, beta, binz, root_mean_square, root_mean_square_err, expected_noise
