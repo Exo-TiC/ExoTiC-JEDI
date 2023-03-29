@@ -41,6 +41,42 @@ import pickle
 
 
 
+def binning(bin_edges, x_model, y_model):
+    """
+    Bin a set of y values for a given set of bin edges
+
+    Parameters
+    ----------
+    bin_edges : array-like
+        edges of the new bins to adjust the y data to. 
+        requires upper and lower bounds so should have length = len(new_x)+1
+    x_model : array
+        original x values to bin
+    y_model : array
+        original y values to bin
+
+    Returns
+    -------
+    new_x : array
+        binned x values
+    new_y : array 
+        binned y values
+    """
+    x_low = bin_edges[:-1]
+    x_up = bin_edges[1:]
+    new_x = (x_low+x_up)/2
+    new_y=[]
+    for i in range((len(bin_edges)-1)):
+        bin_indices = (x_model >= bin_edges[i]) & (x_model <= bin_edges[i+1])
+        binned_y = y_model[bin_indices].mean()
+        new_y.append(binned_y)
+    new_x = np.array(new_x)
+    new_y = np.array(new_y)
+    return new_x,new_y
+
+
+
+
 def unsegment(pathlist, exten):
     '''
     # From Jeff Valenti:
@@ -140,6 +176,8 @@ def dq_flag_metrics(data_cube, dq_cube, plot_bit=None):
         plt.imshow(np.max(dq_tesseract_bits[:, :, :, plot_bit], axis=0),
                    origin='lower', aspect='auto', interpolation='none')
         plt.show()
+
+
 
 
 def noise_calculator(residuals, maxnbins=None, binstep=1, rndm_rlz=10,
