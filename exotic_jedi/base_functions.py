@@ -508,6 +508,60 @@ def get_aperture(im, trace_width_guess, start, end, poly_orders=[2,6], width=3, 
     return(trace_position, trace_width, upper_aperture, lower_aperture, upper_ap, lower_ap)
 
 
+def column_fit_visualiser(im, pixel_column, width_guess, aperture_width):
+    """
+    # Plot up individual column and corresponding guassian fit to said column
+
+    Parameters
+    ----------
+    im : array
+        2D single integration image
+    pixel_column : int
+        pixel number of column to plot
+    width_guess : float
+        initial guess of how wide the trace is in pixels
+    aperture_width : float
+        number of fwhms to extend the aperture to
+    """
+
+    im_shape = np.shape(im)
+
+    pixels_in_column = np.arange(im_shape[0]) # how tall is the thing
+
+    column = im[:, pixel_column]
+
+    centre_guess = np.argmax(column)
+    amplitude_guess = np.max(column)
+
+    fit_guess = [centre_guess, width_guess, amplitude_guess]
+
+    guass_popt, fpcov = curve_fit(gauss, pixels_in_column, column, p0=fit_guess)
+
+    xvals = np.arange(0,len(im[:,pixel_column]),1)
+    xvals_highres = np.arange(0,len(im[:,pixel_column]),0.1)
+
+    plt.figure()
+    plt.plot(im[:,pixel_column], label=('Image Column '+str(pixel_column)),alpha=0.5, marker='.')
+    plt.plot(xvals, gauss(xvals, guass_popt[0], guass_popt[1], guass_popt[2]), label='Fitted Gaussian (Pixel Resoltion)',alpha=0.5)
+    plt.plot(xvals_highres, gauss(xvals_highres, guass_popt[0], guass_popt[1], guass_popt[2]), label='Fitted Gaussian (10x Pixel Resoltion)',alpha=0.5)
+    plt.axvline(guass_popt[0],ls='-', label='Center', color='k', alpha=0.4)
+    plt.axvline(guass_popt[0]+aperture_width*guass_popt[1],ls=':', label='Aperture', color='k', alpha=0.8)
+    plt.axvline(guass_popt[0]-aperture_width*guass_popt[1],ls=':', color='k', alpha=0.8)
+    plt.legend()
+    plt.show()
+
+    plt.figure()
+    plt.plot(im[:,pixel_column], label=('Image Column '+str(pixel_column)),alpha=0.5, marker='.')
+    plt.plot(xvals, gauss(xvals, guass_popt[0], guass_popt[1], guass_popt[2]), label='Fitted Gaussian (Pixel Resoltion)',alpha=0.5)
+    plt.plot(xvals_highres, gauss(xvals_highres, guass_popt[0], guass_popt[1], guass_popt[2]), label='Fitted Gaussian (10x Pixel Resoltion)',alpha=0.5)
+    plt.axvline(guass_popt[0],ls='-', label='Center', color='k', alpha=0.4)
+    plt.axvline(guass_popt[0]+aperture_width*guass_popt[1],ls=':', label='Aperture', color='k', alpha=0.8)
+    plt.axvline(guass_popt[0]-aperture_width*guass_popt[1],ls=':', color='k', alpha=0.8)
+    plt.xlim(guass_popt[0]-aperture_width*guass_popt[1]-1, guass_popt[0]+aperture_width*guass_popt[1]+1)
+    plt.legend()
+    plt.show()
+
+
 
 
 
