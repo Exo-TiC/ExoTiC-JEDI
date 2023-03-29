@@ -12,18 +12,9 @@
 
 
 # File Created : 8 July 2022
-#				 Lili Alderson lili.alderson@bristol.ac.uk
+#                Lili Alderson lili.alderson@bristol.ac.uk
 
-# Last Updated : 18 August 2022 (LA)
-#
-#                2 August 2022 (LA)
-#                 - added dq checker
-#                 - fixed NaN related bug
-#                 - fixed plotting bug
-#
-#                27 July 2022 (LA)
-#                 - fixing bugs relating to edge cases
-#                 - varifying extraction methods give consistent results 
+
 
 
 # Imports
@@ -339,6 +330,9 @@ def outliers_through_time(input_data, window_size=30, n_sig=6, plot=False):
 ###################
 
 
+def linear(x,c,m):
+    return(x*m+c)
+
 
 def gauss(x, x0, sig, k):
     A = (x - x0)**2 / (2*sig**2)
@@ -508,6 +502,7 @@ def get_aperture(im, trace_width_guess, start, end, poly_orders=[2,6], width=3, 
     return(trace_position, trace_width, upper_aperture, lower_aperture, upper_ap, lower_ap)
 
 
+
 def column_fit_visualiser(im, pixel_column, width_guess, aperture_width):
     """
     # Plot up individual column and corresponding guassian fit to said column
@@ -561,6 +556,75 @@ def column_fit_visualiser(im, pixel_column, width_guess, aperture_width):
     plt.legend()
     plt.show()
 
+
+
+def fwhm_through_time_grabber(cleaned_data, wvls, user_values, width_guess=0.7):
+    """
+    Obtain the time series of the spectral trace FWHM throughout the observation at any specified wavelength
+
+    Parameters
+    ----------
+    cleaned_data : array
+        3D array of integration images through time
+    wvls : array
+        wavelength values for each pixel on the detector
+    user_values : list
+        wavelengths at which to return the fwhm time series e.g., [3.0,3.5]
+    width_guess : float (optional)
+        estimate of how wide the spectral trace is. default=0.7
+
+    Returns
+    -------
+    fwhms : array
+        time series of the FWHM of the spectral trace at each of the specified wavelengths
+    """
+    
+    fwhms = []
+    column_ids = []
+
+    for value in user_values:
+        column_ids.append(np.where(np.array(wvls)>=value)[0][0])
+
+    for i in tqdm(range(0,len(cleaned_data.copy()))):
+
+        im=cleaned_data[i]
+
+        fitted_gaussians = []
+
+        #print(i)
+
+        for value in column_ids:
+
+            #print(value)
+
+            column = im[:,value]
+
+            #print(len(column))
+
+            centre_guess = np.argmax(column)
+            amplitude_guess = np.max(column)
+
+            pixels_in_column = np.arange(len(column))
+
+            try:
+                fit_guess = [centre_guess, width_guess, amplitude_guess]
+
+                fpopt, fpcov = curve_fit(gauss, pixels_in_column, column, p0=fit_guess)
+                fitted_gaussians.append(fpopt)
+
+            except ValueError as err:
+                #self.log.warn("Gaussian fitting failed, nans present for column={}.".format(i))
+                fitted_gaussians.append([np.nan, np.nan, np.nan])
+
+            except RuntimeError as err:
+                #self.log.warn("Gaussian fitting took to long for column={}.".format(i))
+                fitted_gaussians.append([np.nan, np.nan, np.nan])
+
+        trace_info = np.array(fitted_gaussians)
+        trace_widths = np.array(trace_info[:,1])
+        #print(trace_widths)
+        fwhms.append(trace_widths)
+    return(np.array(fwhms))
 
 
 
@@ -711,7 +775,7 @@ def remove_fnoise(im, mask, plot=False, vmin=0, vmax=4.5):
 
 
 def make_1f_stack(im_stack, mask):
-	'''
+    '''
     # Returns a stack of 1/f noise cleaned 2D integration images
     
     # Inputs
