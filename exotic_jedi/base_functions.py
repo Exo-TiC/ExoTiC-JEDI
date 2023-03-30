@@ -1247,7 +1247,7 @@ def get_stellar_spectra(data_cube, upper_ap, lower_ap, set_to_edge = True, xarra
 
 
 
-def compare_2d_spectra(clean_spectra, unclean_spectra, wvl, time, time_units="BJD", spectra_limits=[0.8,1], residual_limits=None, figsize=(14,10)):
+def compare_2d_spectra(clean_spectra, unclean_spectra, wvl, time, time_units="BJD", resolution=None , spectra_limits=[0.8,1], residual_limits=None, figsize=(14,10)):
     '''
     # Make pretty plots comparing 2D spectra at different stages of the extraction process
     # Useful for checking e.g., how much of an effect 1/f noise correction has had
@@ -1264,6 +1264,10 @@ def compare_2d_spectra(clean_spectra, unclean_spectra, wvl, time, time_units="BJ
     # figsize=(14,10) : size of figure
     '''
 
+    if resolution is not None:
+        time = time[::resolution]
+        clean_spectra = clean_spectra[::resolution]
+        unclean_spectra = unclean_spectra[::resolution]
 
     X, Y = np.meshgrid(wvl, time)
 
