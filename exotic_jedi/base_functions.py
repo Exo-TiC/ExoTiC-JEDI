@@ -14,7 +14,16 @@
 # File Created : 8 July 2022
 #                Lili Alderson lili.alderson@bristol.ac.uk
 
-
+# Last Updated : 18 August 2022 (LA)
+#
+#                2 August 2022 (LA)
+#                 - added dq checker
+#                 - fixed NaN related bug
+#                 - fixed plotting bug
+#
+#                27 July 2022 (LA)
+#                 - fixing bugs relating to edge cases
+#                 - varifying extraction methods give consistent results 
 
 
 # Imports
@@ -787,11 +796,9 @@ def make_1f_stack(im_stack, mask):
     '''
     
     for i in tqdm(range(ints)):
-
         im_stack[i] = remove_fnoise(im_stack[i], mask) # make a cleaned version of the image
         
     return(im_stack)
-    
 
 
 
@@ -1248,8 +1255,8 @@ def get_stellar_spectra(data_cube, upper_ap, lower_ap, set_to_edge = True, xarra
 
 
 
-def compare_2d_spectra_tests(clean_spectra, unclean_spectra, wvl, time, time_units="BJD", \
-                             resolution=None, old_map='Reds_r', new_map='Blues_r', residual_map='Purples_r', \
+def compare_2d_spectra(clean_spectra, unclean_spectra, wvl, time, time_units="BJD", 
+                             resolution=None, old_map='Reds_r', new_map='Blues_r', residual_map='Purples_r', 
                              spectra_limits=[0.8,1], residual_limits=None, figsize=(14,10)):
     '''
     # Make pretty plots comparing 2D spectra at different stages of the extraction process
