@@ -784,13 +784,14 @@ def make_1f_stack(im_stack, mask):
     
     # Outputs
     # im_stack : the now 1/f noise removed stack
+    '''
     
     for i in tqdm(range(ints)):
 
         im_stack[i] = remove_fnoise(im_stack[i], mask) # make a cleaned version of the image
         
     return(im_stack)
-    '''
+    
 
 
 
