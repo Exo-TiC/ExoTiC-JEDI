@@ -1247,7 +1247,9 @@ def get_stellar_spectra(data_cube, upper_ap, lower_ap, set_to_edge = True, xarra
 
 
 
-def compare_2d_spectra(clean_spectra, unclean_spectra, wvl, time, time_units="BJD", resolution=None , spectra_limits=[0.8,1], residual_limits=None, figsize=(14,10)):
+def compare_2d_spectra_tests(clean_spectra, unclean_spectra, wvl, time, time_units="BJD", \
+                             resolution=None, old_map='Reds_r', new_map='Blues_r', residual_map='Purples_r', \
+                             spectra_limits=[0.8,1], residual_limits=None, figsize=(14,10)):
     '''
     # Make pretty plots comparing 2D spectra at different stages of the extraction process
     # Useful for checking e.g., how much of an effect 1/f noise correction has had
@@ -1285,22 +1287,22 @@ def compare_2d_spectra(clean_spectra, unclean_spectra, wvl, time, time_units="BJ
     ax4 = fig.add_subplot(gs[1,1])
     ax5 = fig.add_subplot(gs[2,:])
 
-    im1 = ax1.pcolor(X,Y,Z_old,  cmap = 'Reds_r')
+    im1 = ax1.pcolor(X,Y,Z_old,  cmap = old_map)
     fig.colorbar(im1, label = 'Flux', ax=ax1)
     ax1.set_ylabel(('Time ('+time_units+')'))
     ax1.set_xlabel('Wavelength ($\mu$m)')
 
-    im2 = ax2.pcolor(X,Y,Z_old_norm,  cmap = 'Reds_r', vmax=spectra_limits[1], vmin=spectra_limits[0])
+    im2 = ax2.pcolor(X,Y,Z_old_norm,  cmap = old_map, vmax=spectra_limits[1], vmin=spectra_limits[0])
     ax2.set_ylabel(('Time ('+time_units+')'))
     ax2.set_xlabel('Wavelength ($\mu$m)')
     fig.colorbar(im2, ax=ax2, label = 'Relative flux', format="%.2f")
 
-    im3 = ax3.pcolor(X,Y,Z,  cmap = 'Blues_r')
+    im3 = ax3.pcolor(X,Y,Z,  cmap = new_map)
     fig.colorbar(im3, label = 'Flux', ax=ax3)
     ax3.set_ylabel(('Time ('+time_units+')'))
     ax3.set_xlabel('Wavelength ($\mu$m)')
 
-    im4 = ax4.pcolor(X,Y,Z_norm,  cmap = 'Blues_r', vmax=spectra_limits[1], vmin=spectra_limits[0])
+    im4 = ax4.pcolor(X,Y,Z_norm,  cmap = new_map, vmax=spectra_limits[1], vmin=spectra_limits[0])
     ax4.set_ylabel(('Time ('+time_units+')'))
     ax4.set_xlabel('Wavelength ($\mu$m)')
     fig.colorbar(im4, ax=ax4, label = 'Relative flux', format="%.2f")
@@ -1309,7 +1311,7 @@ def compare_2d_spectra(clean_spectra, unclean_spectra, wvl, time, time_units="BJ
     residuals = (Z_norm - Z_old_norm)
     if residual_limits == None:
         residual_limits=[np.min(residuals), np.max(residuals)]
-    im5 = ax5.pcolor(X,Y,residuals,  cmap = 'Purples_r', vmax=residual_limits[1], vmin=residual_limits[0])
+    im5 = ax5.pcolor(X,Y,residuals,  cmap = residual_map, vmax=residual_limits[1], vmin=residual_limits[0])
     fig.colorbar(im5, label = 'Residual', ax=ax5, orientation='horizontal')
     ax5.set_ylabel(('Time ('+time_units+')'))
     ax5.set_xlabel(r'Wavelength ($\mu$m)')
