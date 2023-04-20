@@ -1313,7 +1313,7 @@ def get_stellar_spectra(data_cube, err_cube, upper_ap, lower_ap, set_to_edge = T
     if shift == False:
         all_spectra = unshifted_x
         all_y_collapse = unshifted_y
-        if plot == True:
+    if plot == True:
         for i in range(ints):
             plt.plot(all_spectra[i])
         
@@ -1404,3 +1404,4 @@ def compare_2d_spectra(clean_spectra, unclean_spectra, wvl, time, time_units="BJ
     plt.tight_layout()
 
     plt.show()
+
