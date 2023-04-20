@@ -904,30 +904,50 @@ def check_1f(im_stack, fnoise_mask, stack=True):
 
 
 
-def basic_extraction(im, upper_ap, lower_ap, xarray=None, set_to_edge=False):
-    '''
-    # extracts the spectra from the aperture region, using intrapixel methods to handle the polynomial non integer-ness
+def basic_extraction(im, err_im, upper_ap, lower_ap, xarray=None, set_to_edge=False):
+    """
+    Extract the spectra from the aperture region
+
+    Parameters
+    ----------
+    im : array
+        2D integration image
+    err_im : array
+        2D error array
+    upper_ap : array-like
+        the upper polynomial of the aperture shape
+    lower_ap : array-like
+        the lower polynomial of the aperture shape
+    xarray : array-like (optional)
+        array of x values to extract if not the full image length
+    set_to_edge : bool
+        Whether to default to the edges of the detector if the defined aperture falls off the detector height. default=False
+
+    Returns
+    -------
+    spectrum : array
+        1D stellar spectrum from the image
+    spec_err : array
+        errors on the stellar spectrum
+    """
+
     
-    # Inputs 
-    # im : 2D integration image
-    # upper_ap : the upper polynomial of the aperture shape
-    # lower_ap : the lower polynomial of the aperture shape
-    # xarray=None : array of x values to extract if not the full image length
-    # set_to_edge=False : whether to default to the edges of the detector if the defined aperture falls off the detector height
-    
-    # Outputs
-    # spectrum : 1D stellar spectrum from the image
-    '''
+    if im.shape != err_im.shape:
+        raise Exception("Image array and Error array do not have the same shape.")
 
     if xarray is not None:
         im = im[:,xarray[0]:xarray[-1]]
+        err_im = err_im[:,xarray[0]:xarray[-1]]
         upper_ap = upper_ap[xarray[0]:xarray[-1]]
         lower_ap = lower_ap[xarray[0]:xarray[-1]]
     
     spectrum = np.zeros(np.shape(im)[1])
+    spec_var = np.zeros(np.shape(im)[1])
+    
+    var_im = err_im ** 2.0 # make errors into variances to make adding in quadrature easier
 
     if set_to_edge == False:
-    
+        
         if np.max(upper_ap) >= im.shape[0]:
             raise Exception("Upper aperture extends to "+str(np.max(upper_ap))+" and falls off the detector. Please change the aperture.")
         if np.min(lower_ap) <= 0.0:
@@ -952,37 +972,60 @@ def basic_extraction(im, upper_ap, lower_ap, xarray=None, set_to_edge=False):
         #print(int(np.ceil(lw)), int(np.floor(up))+1)
         
         spectrum[i] += np.sum(im[int(np.ceil(lw)) : int(np.floor(up))+1, i]) # add up all the "whole" pixels within the int region
+        spec_var[i] += np.sum(var_im[int(np.ceil(lw)) : int(np.floor(up))+1, i])
         
         #print(int(np.ceil(lw)), int(np.floor(up)), spectrum[i])
-        
-    return(spectrum)
-
-
-
-def intrapixel_extraction(im, upper_ap, lower_ap, xarray=None, set_to_edge=False):
-    '''
-    # extracts the spectra from the aperture region, using intrapixel methods to handle the polynomial non integer-ness
-    
-    # Inputs 
-    # im : 2D integration image
-    # upper_ap : the upper polynomial of the aperture shape
-    # lower_ap : the lower polynomial of the aperture shape
-    # xarray=None : array of x values to extract if not the full image length
-    # set_to_edge=False : whether to default to the edges of the detector if the defined aperture falls off the detector height
 
     
-    # Outputs
-    # spectrum : 1D stellar spectrum from the image
-    '''
+    spec_err = spec_var ** 0.5 # now squareroot to go back to errors for the flux
+    
+    return(spectrum, spec_err)
+
+
+
+def intrapixel_extraction(im, err_im, upper_ap, lower_ap, xarray=None, set_to_edge=False):
+    """
+    Extract the spectra from the aperture region, using intrapixel methods to handle the polynomial non integer-ness
+
+    Parameters
+    ----------
+    im : array
+        2D integration image
+    err_im : array
+        2D error array
+    upper_ap : array-like
+        the upper polynomial of the aperture shape
+    lower_ap : array-like
+        the lower polynomial of the aperture shape
+    xarray : array-like (optional)
+        array of x values to extract if not the full image length
+    set_to_edge : bool
+        Whether to default to the edges of the detector if the defined aperture falls off the detector height. default=False
+
+    Returns
+    -------
+    spectrum : array
+        1D stellar spectrum from the image
+    spec_err : array
+        errors on the stellar spectrum
+    """
+    
+    if im.shape != err_im.shape:
+        raise Exception("Image array and Error array do not have the same shape.")
 
     if xarray is not None:
         im = im[:,xarray[0]:xarray[-1]]
+        err_im = err_im[:,xarray[0]:xarray[-1]]
         upper_ap = upper_ap[xarray[0]:xarray[-1]]
         lower_ap = lower_ap[xarray[0]:xarray[-1]]
-        
+
     upper_ap2=upper_ap.copy()
     
     spectrum = np.zeros(np.shape(im)[1])
+    spec_var = np.zeros(np.shape(im)[1])
+    
+    var_im = err_im ** 2.0
+    
 
     if set_to_edge == False:
     
@@ -1002,33 +1045,41 @@ def intrapixel_extraction(im, upper_ap, lower_ap, xarray=None, set_to_edge=False
 
 
     for i in range(np.shape(im)[1]):
-        
+
         up = upper_ap[i]-0.5
         lw = lower_ap[i]-0.5
-        
-        
+
         spectrum[i] += np.sum(im[int(np.ceil(lw))+1 : int(np.floor(up))+1, i]) # add up all the "whole" pixels within the int region
+        spec_var[i] += np.sum(var_im[int(np.ceil(lw))+1 : int(np.floor(up))+1, i]) # add up all the "whole" pixels within the err region
+
         
         #print("hello",int(np.ceil(lw))+1, int(np.floor(up))+1)#, spectrum[i])
-        
         #print("int pix", int(np.ceil(up)), up%1., int(np.floor(lw))+1, (1.-(lw%1.)))
         
         if int(np.ceil(up)) == 31:
             top_pixel = (im[int(np.ceil(up)), i]) * 1
+            top_pixel_var = (var_im[int(np.ceil(up)), i]) * 1
         else:
             top_pixel = (im[int(np.ceil(up)), i]) * (up%1.) # grab the intra bit of the upper edge (easy)
+            top_pixel_var = (var_im[int(np.ceil(up)), i]) * (up%1.)
         
         if int(np.floor(lw))+1 == 0:
             low_pixel = (im[int(np.floor(lw))+1, i]) * 1
+            low_pixel_var = (var_im[int(np.floor(lw))+1, i]) * 1
         else:
             low_pixel = (im[int(np.floor(lw))+1, i]) * (1.-(lw%1.)) # grab the intra bit of the lower edge (negative numbers here, hard)
-        
+            low_pixel_var = (var_im[int(np.floor(lw))+1, i]) * (1.-(lw%1.))
+            
         spectrum[i] += top_pixel + low_pixel # add those bonuses on
+        spec_var[i] += top_pixel_var + low_pixel_var
         
         #print(top_pixel, im[int(np.ceil(up)), i] * up%1., im[int(np.ceil(up)), i], up%1.)
         #print(up, lw)
         
-    return(spectrum)
+    spec_err = spec_var ** 0.5
+    
+    return(spectrum, spec_err)
+
 
 
 
@@ -1123,41 +1174,63 @@ def shift_shift(spectrum, shift, method = 'cubic'):
 
 
 
-def get_stellar_spectra(data_cube, upper_ap, lower_ap, set_to_edge = True, xarray=None, flat=None, f_mask=None, extract_method="intrapixel", shift=True, interpolate_mode="cubic", trim_spec=[3,1], high_res_factor=[0.01,0.01], trim_fit=[10,10], plot=False):
-    '''
-    # Gets those spectra! 
-    # loops over all the 2D integration images to remove 1/f noise and perform the extraction, 
-    # correlates the spectra to the template then deshifts them by interpolating to new grid
-    # spits out spectra and their shifts for detrending
+def get_stellar_spectra(data_cube, err_cube, upper_ap, lower_ap, set_to_edge = True, xarray=None, flat=None, f_mask=None, extract_method="intrapixel", shift=True, interpolate_mode="cubic", trim_spec=[3,1], high_res_factor=[0.01,0.01], trim_fit=[10,10], plot=False):
+    """
+    Gets those spectra! 
+    loops over all the 2D integration images to remove 1/f noise and perform the extraction, 
+    correlates the spectra to the template then deshifts them by interpolating to new grid
+    spits out spectra and their shifts for detrending
     
+    Parameters
+    ----------
+    data_cube : array
+        the big 3D stack we want to extract
+    err_cube : array
+        the big 3D array of error values
+    upper_ap : array-like
+        the upper polynomial of the aperture shape
+    lower_ap : array-like
+        the lower polynomial of the aperture shape
+    flat : array (optional)
+        the flat field as obtained by JWST Stage 2. If none, no flat fielding will be performed. default = None
+    fnoise : bool
+        whether to run the 1/f noise correction
+    extract_method: str
+        method used for extraction, default is 'intrapixel' but 'basic' also there
+    xarray : array-like
+        array of x values to extract if not the full image length. default = None
+    shift : bool
+        whether to deshift the spectra. default = False
+    trim_spec : tuple
+        [x,y] number of pixels to cutoff spec at each end for cross-correlation. default = [3,1]
+    high_res_factor : tuple
+        [x,y] fraction of pixel to interpolate onto. default = [0.01,0.01]
+    trim_fit: tuple
+        [x,y] number of interpolated pixels to trim parabolic fit by. default = [10,10]
+    interpolate_mode : str
+        method used for 1D interpolation. default = 'cubic'
+
+    Returns
+    -------
+    all_spectra : array
+        array of (aligned) 1D stellar spectra
+    all_errors : array
+        array of the stellar spectrum errors
+    all_y_collapse : array
+        array of (aligned) 1D collapses in y direction
+    x_shifts : array
+        x_shifts : x shift values for detrending
+    y_shifts : array
+        y shift values for detrending
+    """
     
-    # Inputs
-    # data_cube : the big 3D stac we want to extrac(t)
-    # upper_ap : the upper polynomial of the aperture shape
-    # lower_ap : the lower polynomial of the aperture shape
-    # flat=None : the flat field as obtained by JWST Stage 2. If none, no flat fielding will be performed
-    # f_mask : 2D array which will mask illuminated areas for 1/f cleaning. If none, no 1/f correction will be performed
-    # fnoise=True : whether to run the 1/f noise correction
-    # extract_method='intrapixel' : method used for extraction, default is intrapixel but basic also there
-    # xarray=None : array of x values to extract if not the full image length
-    # shift=True : whether to deshift the spectra
-    # trim_spec=[3,1] : [x,y] number of pixels to cutoff spec at each end for cross-correlation
-    # high_res_factor=[0.01,0.01] : [x,y] fraction of pixel to interpolate onto
-    # trim_fit=[10,10] : [x,y] number of interpolated pixels to trim parabolic fit by
-    # interpolate_mode='cubic' : method used for 1D interpolation
-    
-    # Outputs
-    # all_spectra : array of aligned 1D stellar spectra
-    # all_y_collapse : array of aligned 1D collapses in y direction
-    # x_shifts : x shift values for detrending
-    # y_shifts : y shift values for detrending
-    '''
 
     x_shifts = []
     y_shifts = []
     
     all_spectra = []
     all_y_collapse = []
+    all_errors = []
     
     ints, rows, cols = data_cube.shape # how many spectra actually are there?
     
@@ -1170,17 +1243,20 @@ def get_stellar_spectra(data_cube, upper_ap, lower_ap, set_to_edge = True, xarra
         print("1/f noise is being removed")
     else:
         print("No 1/f noise correction is being performed")
-    
+
     unshifted_x = []
     unshifted_y = []
     
     for i in tqdm(range(ints)):
-        
+    
         # Divide out flat if one has been specified
         if flat:
             im = data_cube[i] / flat # SOMETHING ABOUT FLATS HERE FIX THIS LATER!!
         else:
             im = data_cube[i]
+            
+        err_im = err_cube[i]
+        
         
         if f_mask is not None:
             # Remove 1/f using pre-determined mask for unilluminated area
@@ -1194,9 +1270,9 @@ def get_stellar_spectra(data_cube, upper_ap, lower_ap, set_to_edge = True, xarra
         
         # Extract spectra using specified method
         if extract_method == 'intrapixel':
-            spectrum = intrapixel_extraction(clean_im, upper_ap, lower_ap, xarray)
+            spectrum, spec_err = intrapixel_extraction(clean_im, err_im, upper_ap, lower_ap, xarray)
         if extract_method == 'basic':
-            spectrum = basic_extraction(clean_im, upper_ap, lower_ap, xarray) 
+            spectrum, spec_err = basic_extraction(clean_im, err_im, upper_ap, lower_ap, xarray) 
         #elif extract_method != 'intrapixel' or 'basic':
         #    raise Exception("Inputted extract_method is not an option! Please use either 'intrapixel' or 'basic'")
         
@@ -1205,15 +1281,15 @@ def get_stellar_spectra(data_cube, upper_ap, lower_ap, set_to_edge = True, xarra
         
         unshifted_x.append(spectrum)
         unshifted_y.append(y_collapse)
+        all_errors.append(spec_err)
         
     if shift == True:
-        
         x_template = np.median(unshifted_x, axis=0)
         y_template = np.median(unshifted_y, axis=0)
     
     if plot == True:
         plt.figure()
-     
+        
     if shift == True:
         print("Now calculating shifts")
         for i in tqdm(range(ints)):
@@ -1221,16 +1297,16 @@ def get_stellar_spectra(data_cube, upper_ap, lower_ap, set_to_edge = True, xarra
             
             x_shift = correlator(unshifted_x[i], x_template, trim_spec=trim_spec[0], high_res_factor=high_res_factor[0], trim_fit=trim_fit[0])
             y_shift = correlator(unshifted_y[i], y_template, trim_spec=trim_spec[1], high_res_factor=high_res_factor[1], trim_fit=trim_fit[1])
-        
+            
             x_shifts.append(x_shift)
             y_shifts.append(y_shift)
-                
+            
             new_spec_x = shift_shift(unshifted_x[i], x_shift-x_shifts[0], method=interpolate_mode)
             new_coll_y = shift_shift(unshifted_y[i], y_shift-y_shifts[0], method=interpolate_mode)
-        
+            
             all_spectra.append(new_spec_x)
             all_y_collapse.append(new_coll_y)
-                
+            
             if plot == True:
                 plt.plot(all_spectra[i])
             
@@ -1238,14 +1314,15 @@ def get_stellar_spectra(data_cube, upper_ap, lower_ap, set_to_edge = True, xarra
         all_spectra = unshifted_x
         all_y_collapse = unshifted_y
         if plot == True:
-            for i in range(ints):
-                plt.plot(all_spectra[i])
+        for i in range(ints):
+            plt.plot(all_spectra[i])
         
     if plot == True:
         plt.xlabel("$x$ Pixel")
         plt.ylabel("Raw Counts")
         plt.show()                    
-    return(np.array(all_spectra), np.array(all_y_collapse), np.array(x_shifts), np.array(y_shifts))
+
+    return(np.array(all_spectra), np.array(all_errors), np.array(all_y_collapse), np.array(x_shifts), np.array(y_shifts))
 
 
 
@@ -1327,4 +1404,3 @@ def compare_2d_spectra(clean_spectra, unclean_spectra, wvl, time, time_units="BJ
     plt.tight_layout()
 
     plt.show()
-
