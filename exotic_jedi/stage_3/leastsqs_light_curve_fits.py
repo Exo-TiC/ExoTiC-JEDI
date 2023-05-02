@@ -4,22 +4,22 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
 
-def fit_white_light_curve(times, flux, flux_err, pre_tilt_x, pre_tilt_y,
-                          pst_tilt_x, pst_tilt_y, u1, u2, u3, u4, tilt_idx,
+def fit_white_light_curve(times, flux, flux_err, x, y,
+                          ld_coefs, law, planet_params,
                           draw_fits=False):
     params = batman.TransitParams()
-    params.t0 = 59791.113
-    params.per = 4.05527999  # fixed.
-    params.rp = 0.146178
-    params.a = 11.55
-    params.inc = 87.93
-    params.ecc = 0.  # fixed.
-    params.w = 0.  # fixed.
-    params.u = [u1, u2, u3, u4]  # fixed.
-    params.limb_dark = "nonlinear"  # fixed.
+    params.t0 = planet_params['t0'][0]
+    params.per = planet_params['period'][0]  # fixed.
+    params.rp = planet_params['rp_rs'][0] #rp/rs
+    params.a = planet_params['a_rs'][0] #a/r*
+    params.inc = planet_params['inclination'][0]
+    params.ecc = planet_params['eccentricity'][0]  # fixed.
+    params.w = planet_params['w_omega'][0]  # fixed.
+    params.u = ld_coefs  # fixed.
+    params.limb_dark = law  # fixed.
     m = batman.TransitModel(params, times)
 
-    def model(_, t0, rp, a, inc, s1, s2, l1, l2, a1, b1):
+    def model(_, t0, rp, a, inc, s1, s2, s3, s4):
 
         # Free physical params.
         params.t0 = t0
@@ -29,21 +29,15 @@ def fit_white_light_curve(times, flux, flux_err, pre_tilt_x, pre_tilt_y,
         light_curve = m.light_curve(params)
 
         # Systematics
-        pre_tilt_sys = s1 * pre_tilt_x + s2 * pre_tilt_y
-        pst_tilt_sys = l1 * pst_tilt_x + l2 * pst_tilt_y
-        light_curve[:tilt_idx] += pre_tilt_sys
-        light_curve[tilt_idx:] += pst_tilt_sys
-
-        # Baseline.
-        light_curve[:tilt_idx] += a1
-        light_curve[tilt_idx:] += b1
+        sys = (s1 * x) + (s2 * y) + (s3) + (s4 * times)
+        light_curve[:] += sys
 
         return light_curve
 
     popt, pcov = curve_fit(
         model, times, flux, sigma=flux_err,
-        p0=[59791.113, 0.146178, 11.55, 87.93,
-            0., 0., 0., 0., 0., 0.],
+        p0=[planet_params['t0'][0], planet_params['rp_rs'][0], planet_params['a_rs'][0], planet_params['inclination'][0],
+            0., 0., 0., 0.],
         method='lm')
 
     perr = np.sqrt(np.diag(pcov))
@@ -64,8 +58,8 @@ def fit_white_light_curve(times, flux, flux_err, pre_tilt_x, pre_tilt_y,
     if draw_fits:
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 7))
         ax1.get_shared_x_axes().join(ax1, ax2)
-        ax1.errorbar(times, flux, yerr=flux_err, fmt='.')
-        ax1.plot(times, opt_model)
+        ax1.errorbar(times, flux, yerr=flux_err, fmt='.', zorder=0, alpha=0.2)
+        ax1.plot(times, opt_model, zorder=1)
         ax2.errorbar(times, flux - opt_model, yerr=flux_err, fmt='.')
         plt.tight_layout()
         plt.show()
@@ -89,40 +83,34 @@ def fit_white_light_curve(times, flux, flux_err, pre_tilt_x, pre_tilt_y,
     return t0, a, inc, fit_dict
 
 
-def fit_spec_light_curve(times, flux, flux_err, pre_tilt_x, pre_tilt_y,
-                         pst_tilt_x, pst_tilt_y, u1, u2, u3, u4, t0, a, inc,
-                         tilt_idx, outlier_threshold=5., draw_fits=False):
+def fit_spec_light_curve(times, flux, flux_err, x, y,
+                         ld_coefs, law, planet_params, t0, a, inc,
+                         outlier_threshold=5., draw_fits=False):
     params = batman.TransitParams()
     params.t0 = t0  # fixed from wlc fit.
-    params.per = 4.05527999  # fixed.
-    params.rp = 0.146178
+    params.per = planet_params['period'][0]  # fixed.
+    params.rp = planet_params['rp_rs'][0]
     params.a = a  # fixed from wlc fit.
     params.inc = inc  # fixed from wlc fit.
-    params.ecc = 0.  # fixed.
-    params.w = 0.  # fixed.
-    params.u = [u1, u2, u3, u4]  # fixed.
-    params.limb_dark = "nonlinear"  # fixed.
+    params.ecc = planet_params['eccentricity'][0]  # fixed.
+    params.w = planet_params['w_omega'][0]  # fixed.
+    params.u = ld_coefs  # fixed.
+    params.limb_dark = law  # fixed.
     m = batman.TransitModel(params, times)
 
     _iter = 0
     mask = np.ones(times.shape).astype(bool)
     while True:
 
-        def model(_, rp, s1, s2, l1, l2, a1, b1, use_mask=True):
+        def model(_, rp, s1, s2, s3, s4, use_mask=True):
 
             # Free physical params.
             params.rp = rp
             light_curve = m.light_curve(params)
 
             # Systematics
-            pre_tilt_sys = s1 * pre_tilt_x + s2 * pre_tilt_y
-            pst_tilt_sys = l1 * pst_tilt_x + l2 * pst_tilt_y
-            light_curve[:tilt_idx] += pre_tilt_sys
-            light_curve[tilt_idx:] += pst_tilt_sys
-
-            # Baseline.
-            light_curve[:tilt_idx] += a1
-            light_curve[tilt_idx:] += b1
+            sys = (s1 * x) + (s2 * y) + (s3) + (s4 * times)
+            light_curve[:] += sys
 
             if use_mask:
                 return light_curve[mask]
@@ -132,7 +120,7 @@ def fit_spec_light_curve(times, flux, flux_err, pre_tilt_x, pre_tilt_y,
         _iter += 1
         popt, pcov = curve_fit(
             model, times[mask], flux[mask], sigma=flux_err[mask],
-            p0=[0.146178, 0., 0., 0., 0., 0., 0.],
+            p0=[planet_params['rp_rs'][0], 0., 0., 0., 0.],
             method='lm')
 
         perr = np.sqrt(np.diag(pcov))
