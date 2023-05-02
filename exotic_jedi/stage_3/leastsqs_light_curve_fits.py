@@ -6,7 +6,8 @@ from scipy.optimize import curve_fit
 
 def fit_white_light_curve(times, flux, flux_err, x, y,
                           ld_coefs, law, planet_params,
-                          draw_fits=False):
+                          outlier_threshold=5., draw_fits=False,
+                          print_full_output=False):
     params = batman.TransitParams()
     params.t0 = planet_params['t0'][0]
     params.per = planet_params['period'][0]  # fixed.
@@ -19,50 +20,84 @@ def fit_white_light_curve(times, flux, flux_err, x, y,
     params.limb_dark = law  # fixed.
     m = batman.TransitModel(params, times)
 
-    def model(_, t0, rp, a, inc, s1, s2, s3, s4):
+    _iter = 0
+    mask = np.ones(times.shape).astype(bool)
+    while True:
 
-        # Free physical params.
-        params.t0 = t0
-        params.rp = rp
-        params.a = a
-        params.inc = inc
-        light_curve = m.light_curve(params)
+        def model(_, t0, rp, a, inc, s1, s2, s3, s4):
 
-        # Systematics
-        sys = (s1 * x) + (s2 * y) + (s3) + (s4 * times)
-        light_curve[:] += sys
+            # Free physical params.
+            params.t0 = t0
+            params.rp = rp
+            params.a = a
+            params.inc = inc
+            light_curve = m.light_curve(params)
 
-        return light_curve
+            # Systematics
+            sys = (s1 * x) + (s2 * y) + (s3) + (s4 * times)
+            light_curve[:] += sys
 
-    popt, pcov = curve_fit(
-        model, times, flux, sigma=flux_err,
-        p0=[planet_params['t0'][0], planet_params['rp_rs'][0], planet_params['a_rs'][0], planet_params['inclination'][0],
-            0., 0., 0., 0.],
-        method='lm')
+            return light_curve
 
-    perr = np.sqrt(np.diag(pcov))
-    rp = popt[1]
-    rp_err = perr[1]
-    transit_depth = rp**2
-    transit_depth_err = rp_err/rp * 2 * transit_depth
-    print('Rp/Rs={} +- {}'.format(rp, rp_err))
-    print('Transit depth={} +- {}'.format(transit_depth, transit_depth_err))
-    print('t0={}'.format(popt[0]))
-    print('a={}'.format(popt[2]))
-    print('inc={}'.format(popt[3]))
+        _iter += 1
+        popt, pcov = curve_fit(
+            model, times, flux, sigma=flux_err,
+            p0=[planet_params['t0'][0], planet_params['rp_rs'][0], planet_params['a_rs'][0], planet_params['inclination'][0],
+                0., 0., 0., 0.],
+            method='lm')
 
-    opt_model = model(times, *popt)
-    residuals = flux - opt_model
-    print('Residuals={} ppm'.format(np.std(residuals) * 1.e6))
+        perr = np.sqrt(np.diag(pcov))
+        rp = popt[1]
+        rp_err = perr[1]
+        transit_depth = rp**2
+        transit_depth_err = rp_err/rp * 2 * transit_depth
+        if print_full_output == True:
+            print('Rp/Rs={} +- {}'.format(rp, rp_err))
+            print('Transit depth={} +- {}'.format(transit_depth, transit_depth_err))
+            print('t0={}'.format(popt[0]))
+            print('a={}'.format(popt[2]))
+            print('inc={}'.format(popt[3]))
+
+        opt_model = model(times, *popt)
+        residuals = flux - opt_model
+        if print_full_output == True:
+            print('Residuals={} ppm'.format(np.std(residuals) * 1.e6))
+            print('Done in {} iterations.'.format(_iter))
+
+        dev_trace = np.abs(residuals) / np.std(residuals)
+        dev_trace = np.ma.array(dev_trace, mask=~mask)
+        max_deviation_idx = np.ma.argmax(dev_trace)
+
+        if dev_trace[max_deviation_idx] > outlier_threshold:
+            mask[max_deviation_idx] = False
+            continue
+        else:
+            print('Rp/Rs={} +- {}'.format(rp, rp_err))
+            print('Transit depth={} +- {}'.format(transit_depth, transit_depth_err))
+            print('t0={}'.format(popt[0]))
+            print('a={}'.format(popt[2]))
+            print('inc={}'.format(popt[3]))
+
+            print('Residuals={} ppm'.format(np.std(residuals) * 1.e6))
+            print('Done in {} iterations.'.format(_iter))
+
+            break
+
 
     if draw_fits:
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 7))
         ax1.get_shared_x_axes().join(ax1, ax2)
-        ax1.errorbar(times, flux, yerr=flux_err, fmt='.', zorder=0, alpha=0.2)
-        ax1.plot(times, opt_model, zorder=1)
-        ax2.errorbar(times, flux - opt_model, yerr=flux_err, fmt='.')
+        ax1.errorbar(times[mask], flux[mask], yerr=flux_err[mask], fmt='.', zorder=0, alpha=0.4)
+        ax1.plot(times, opt_model)
+        ax1.set_ylabel("Normalised Flux")
+        ax2.set_ylabel("Residuals (ppm)")
+        ax2.set_xlabel("Time (BJD)")
+        ax2.errorbar(times[mask], (flux[mask] - opt_model[mask])*1e6,
+                     yerr=(flux_err[mask])*1e6, fmt='.')
+        ax2.axhline(0, ls=':', color='k')
         plt.tight_layout()
         plt.show()
+
 
     t0 = popt[0]
     a = popt[2]
@@ -85,7 +120,8 @@ def fit_white_light_curve(times, flux, flux_err, x, y,
 
 def fit_spec_light_curve(times, flux, flux_err, x, y,
                          ld_coefs, law, planet_params, t0, a, inc,
-                         outlier_threshold=5., draw_fits=False):
+                         outlier_threshold=5., draw_fits=False,
+                         print_full_output=False):
     params = batman.TransitParams()
     params.t0 = t0  # fixed from wlc fit.
     params.per = planet_params['period'][0]  # fixed.
@@ -97,6 +133,8 @@ def fit_spec_light_curve(times, flux, flux_err, x, y,
     params.u = ld_coefs  # fixed.
     params.limb_dark = law  # fixed.
     m = batman.TransitModel(params, times)
+
+    print("called")
 
     _iter = 0
     mask = np.ones(times.shape).astype(bool)
@@ -128,14 +166,16 @@ def fit_spec_light_curve(times, flux, flux_err, x, y,
         rp_err = perr[0]
         transit_depth = rp**2
         transit_depth_err = rp_err/rp * 2 * transit_depth
-        print('Rp/Rs={} +- {}'.format(rp, rp_err))
-        print('Transit depth={} +- {}'.format(transit_depth, transit_depth_err))
+        if print_full_output==True:
+            print('Rp/Rs={} +- {}'.format(rp, rp_err))
+            print('Transit depth={} +- {}'.format(transit_depth, transit_depth_err))
 
         opt_model = model(times, *popt, use_mask=False)
         residuals = flux - opt_model
         residuals_precision = np.std(residuals) * 1.e6
-        print('Residuals={} ppm'.format(residuals_precision))
-        print('Done in {} iterations.'.format(_iter))
+        if print_full_output==True:
+            print('Residuals={} ppm'.format(residuals_precision))
+            print('Done in {} iterations.'.format(_iter))
 
         dev_trace = np.abs(residuals) / np.std(residuals)
         dev_trace = np.ma.array(dev_trace, mask=~mask)
@@ -145,17 +185,28 @@ def fit_spec_light_curve(times, flux, flux_err, x, y,
             mask[max_deviation_idx] = False
             continue
         else:
+            print('Rp/Rs={} +- {}'.format(rp, rp_err))
+            print('Transit depth={} +- {}'.format(transit_depth, transit_depth_err))
+
+            print('Residuals={} ppm'.format(residuals_precision))
+            print('Done in {} iterations.'.format(_iter))
+
             break
 
     if draw_fits:
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 7))
         ax1.get_shared_x_axes().join(ax1, ax2)
-        ax1.errorbar(times[mask], flux[mask], yerr=flux_err[mask], fmt='.')
+        ax1.errorbar(times[mask], flux[mask], yerr=flux_err[mask], fmt='.', zorder=0, alpha=0.4)
         ax1.plot(times, opt_model)
-        ax2.errorbar(times[mask], flux[mask] - opt_model[mask],
-                     yerr=flux_err[mask], fmt='.')
+        ax1.set_ylabel("Normalised Flux")
+        ax2.set_ylabel("Residuals (ppm)")
+        ax2.set_xlabel("Time (BJD)")
+        ax2.errorbar(times[mask], (flux[mask] - opt_model[mask])*1e6,
+                     yerr=(flux_err[mask])*1e6, fmt='.')
+        ax2.axhline(0, ls=':', color='k')
         plt.tight_layout()
         plt.show()
+
 
     no_planet_popt = np.copy(popt)
     no_planet_popt[0] = 0.
