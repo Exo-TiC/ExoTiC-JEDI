@@ -24,7 +24,7 @@ def fit_white_light_curve(times, flux, flux_err, x, y,
     mask = np.ones(times.shape).astype(bool)
     while True:
 
-        def model(_, t0, rp, a, inc, s1, s2, s3, s4):
+        def model(_, t0, rp, a, inc, s1, s2, s3, use_mask=True):
 
             # Free physical params.
             params.t0 = t0
@@ -34,16 +34,20 @@ def fit_white_light_curve(times, flux, flux_err, x, y,
             light_curve = m.light_curve(params)
 
             # Systematics
-            sys = (s1 * x) + (s2 * y) + (s3) + (s4 * times)
+            sys = (s1 * x * abs(y)) + (s2) + (s3 * times)
             light_curve[:] += sys
 
-            return light_curve
+            if use_mask:
+                return light_curve[mask]
+            else:
+                return light_curve
+
 
         _iter += 1
         popt, pcov = curve_fit(
-            model, times, flux, sigma=flux_err,
+            model, times[mask], flux[mask], sigma=flux_err[mask],
             p0=[planet_params['t0'][0], planet_params['rp_rs'][0], planet_params['a_rs'][0], planet_params['inclination'][0],
-                0., 0., 0., 0.],
+                0., 0., 0.],
             method='lm')
 
         perr = np.sqrt(np.diag(pcov))
@@ -58,7 +62,7 @@ def fit_white_light_curve(times, flux, flux_err, x, y,
             print('a={}'.format(popt[2]))
             print('inc={}'.format(popt[3]))
 
-        opt_model = model(times, *popt)
+        opt_model = model(times, *popt, use_mask=False)
         residuals = flux - opt_model
         if print_full_output == True:
             print('Residuals={} ppm'.format(np.std(residuals) * 1.e6))
@@ -105,8 +109,8 @@ def fit_white_light_curve(times, flux, flux_err, x, y,
 
     no_planet_popt = np.copy(popt)
     no_planet_popt[1] = 0.
-    sys_model = model(times, *no_planet_popt)
-
+    sys_model = model(times, *no_planet_popt, use_mask=False)
+    
     fit_dict = {
         "light_curve_model": opt_model,
         "corrected_flux": flux - sys_model + 1,
@@ -140,15 +144,14 @@ def fit_spec_light_curve(times, flux, flux_err, x, y,
     mask = np.ones(times.shape).astype(bool)
     while True:
 
-        def model(_, rp, s1, s2, s3, s4, use_mask=True):
+        def model(_, rp, s1, s2, s3, use_mask=True):
 
             # Free physical params.
             params.rp = rp
             light_curve = m.light_curve(params)
 
             # Systematics
-            sys = (s1 * x) + (s2 * y) + (s3) + (s4 * times)
-            light_curve[:] += sys
+            sys = (s1 * x * abs(y)) + (s2) + (s3 * times)
 
             if use_mask:
                 return light_curve[mask]
@@ -158,7 +161,7 @@ def fit_spec_light_curve(times, flux, flux_err, x, y,
         _iter += 1
         popt, pcov = curve_fit(
             model, times[mask], flux[mask], sigma=flux_err[mask],
-            p0=[planet_params['rp_rs'][0], 0., 0., 0., 0.],
+            p0=[planet_params['rp_rs'][0], 0., 0., 0.],
             method='lm')
 
         perr = np.sqrt(np.diag(pcov))
