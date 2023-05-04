@@ -90,6 +90,7 @@ def unsegment(pathlist, exten):
     # Outputs
     # stack : 3D array of the unsegmented fits extention
     # [x0, y0] : tuple of x0 and y0
+    # .
     '''
 
     for path in pathlist:
@@ -119,16 +120,17 @@ def unsegment(pathlist, exten):
 
 
 
-def dq_flag_metrics(data_cube, dq_cube, plot_bit=None):
-    '''
-    # Provides a list of the number of pixels flagged with each data quality flag, 
-    # both the DQ bit and the readable name of the flag are given
-    
-    # Inputs
-    # data_cube : 3D array of the science extention from the fits file
-    # dq_cube : 3D array of the data quality extention from the fits files
-    # plot_bit=None : whether to plot the flagged pixels in an imshow
-    '''
+def dq_flag_metrics(data_cube, dq_cube, plot_bit=False):
+    """
+    Parameters
+    ----------
+    data_cube : array
+        3D array of the science extention from the fits file
+    dq_cube : array
+        3D array of the data quality extention from the fits files
+    plot_bit : bool
+        If True, plot flags in an imshow
+    """
     
     flags_dict = {0: "DO_NOT_USE", 1: "SATURATED", 2: "JUMP_DET",
                   3: "DROPOUT", 4: "OUTLIER", 5: "PERSISTENCE",
@@ -172,7 +174,7 @@ def dq_flag_metrics(data_cube, dq_cube, plot_bit=None):
     print('DQ fraction of total pixels={} %'.format(
         round(total_cleaned / total_pixels * 100., 3)))
 
-    if plot_bit is not None:
+    if plot_bit == True:
         plt.imshow(np.max(dq_tesseract_bits[:, :, :, plot_bit], axis=0),
                    origin='lower', aspect='auto', interpolation='none')
         plt.show()
