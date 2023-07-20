@@ -282,7 +282,7 @@ def outliers_through_time(input_data, window_size=30, n_sig=6, plot=False):
         sigmas = np.std(new_data, axis=0)
         medians = np.median(new_data, axis=0)
 
-        cr_mask = new_data - medians > sigmas * n_sig
+        cr_mask = abs(new_data - medians) > sigmas * n_sig
 
         total_hits.append(np.sum(cr_mask))
         #window_hits.append(np.sum(cr_mask))
