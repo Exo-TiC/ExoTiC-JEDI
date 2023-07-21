@@ -10,4 +10,4 @@ To run this tutorial:
   6. Explore the 2D integrations, clean things up and generally Extract Diagnose and Investigate in **3_*.ipynb**
   
 
-*Light Curve Fitting and playing with Engineering Data are coming soon!*
+*Light Curve Fitting is coming soon!*
