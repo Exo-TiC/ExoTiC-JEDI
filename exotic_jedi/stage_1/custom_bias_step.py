@@ -41,7 +41,7 @@ class CustomBiasStep(Step):
                 debiased_model.meta.cal_step.custom_debiased = 'SKIPPED'
                 return debiased_model
 
-        fg_med_bias = np.median(debiased_model.data[:, 0, :, :], axis=0)
+        fg_med_bias = np.nanmedian(debiased_model.data[:, 0, :, :], axis=0)
         debiased_model.data -= fg_med_bias[np.newaxis, np.newaxis, :, :]
 
         debiased_model.meta.cal_step.custom_debiased = 'COMPLETE'

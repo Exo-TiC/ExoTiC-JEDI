@@ -102,7 +102,7 @@ class DestripingGroupsStep(Step):
 
     def _define_spectral_trace_region(self, data_tesseract):
         # Median stack last group of each integration.
-        mstack = np.median(data_tesseract[:, -1, :, :], axis=0)
+        mstack = np.nanmedian(data_tesseract[:, -1, :, :], axis=0)
 
         # Find trace position per column with gaussian fits.
         trace_position, trace_sigmas = self._find_trace_position_per_col(
@@ -478,4 +478,4 @@ class DestripingGroupsStep(Step):
                 pwr = LombScargle(read_times, pixel_counts).power(freqs)
                 power.append(pwr)
 
-        return np.median(power, axis=0)
+        return np.nanmedian(power, axis=0)
