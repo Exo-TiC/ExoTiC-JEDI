@@ -54,29 +54,31 @@ import pickle
 ###################
 
 
-def dq_flat_replace(sci_cube, dq_cube, bits_to_mask=[0, 2, 10, 11], window_size=4):
-	'''
-	# Load in fits file and find locations of pixels with data quality flags that match those in inputed list
-	# Any flagged pixels will be replaced with the median value of pixels in a window along that row
-	
-	# Inputs
-	# sci_cube : 3D science array, as in extension [1] of jwst _rateints.fits file
-	# dq_cube : 3D array of data quality flags, as in extension [3] of jwst _rateints.fits file
-	# bits_to_mask=[0,2,10,11] : data quality flags that require replacement see Table 3, https://jwst-pipeline.readthedocs.io/_/downloads/en/latest/pdf/
-	# window_size=4 : how many pixels either side of the flagged pixel to take the median from
+def dq_flat_replace(data_cube, dq_cube, bits_to_mask=[0, 2, 10, 11], window_size=4):
+    '''
+    # Load in fits file and find locations of pixels with data quality flags that match those in inputed list
+    # Any flagged pixels will be replaced with the median value of pixels in a window along that row
+    
+    # Inputs
+    # data_cube : 3D science array, as in extension [1] of jwst _rateints.fits file
+    # dq_cube : 3D array of data quality flags, as in extension [3] of jwst _rateints.fits file
+    # bits_to_mask=[0,2,10,11] : data quality flags that require replacement see Table 3, https://jwst-pipeline.readthedocs.io/_/downloads/en/latest/pdf/
+    # window_size=4 : how many pixels either side of the flagged pixel to take the median from
 
-	# Outputs
-	# sci_cub : cleaned 3D data cube thingy
-	'''
+    # Outputs
+    # sci_cub : cleaned 3D data cube thingy
+    '''
 
-	#dq_cube = data_cube[3].data
-	
-	#sci_cube = data_cube[1].data.copy()
+    #dq_cube = data_cube[3].data
+    
+    #sci_cube = data_cube[1].data.copy()
 
-	#np.shape(dq_cube)
+    #np.shape(dq_cube)
 
-	#np.shape(np.where(dq_cube!=0))
+    #np.shape(np.where(dq_cube!=0))
 
+    sci_cube = data_cube.copy()
+    
 	flags_time = np.where(dq_cube!=0)[0] # finding where the pixels have a data quality flag
 	flags_y = np.where(dq_cube!=0)[1]
 	flags_x = np.where(dq_cube!=0)[2]
